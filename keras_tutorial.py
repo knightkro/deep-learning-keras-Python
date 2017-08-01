@@ -21,21 +21,25 @@ from keras.models     import load_model # allows us to load saved models
 
 ###############################################################################
 # functions
-def get_new_model(input_shape = input_shape):
- model = Sequential()
- model.add(Dense(100, activation='relu', input_shape = input_shape))
- model.add(Dense(100, activation='relu'))
- model.add(Dense(2, activation='softmax')) 
+def get_sequential_model(input_nodes, first_layer, hidden_layer, output_shape, activation_input, activation_hidden, activation_output):
+ """ Define a dense sequential neural network with input_nodes number of input nodes,
+ hidden_layer a list of hidden layers, output_shape defines output shape. In addition
+ the types of activation need to be defined. """
+ model = Sequential() # set up model
+ model.add(Dense(first_layer, activation = activation_input, input_shape = input_nodes)) # first layer
+ for layer in hidden_layer: # set up further hidden layers
+     model.add(Dense(layer, activation = activation_hidden))
+ model.add(Dense(output_shape, activation = activation_output)) 
  return model
 
 ###############################################################################                 
 
 
 ###############################################################################
-# Part 1: Defining a model
+# Get some data
  
 # Load the data into a pandas data frame
-df = pd.read_csv('titanic_all_numeric.csv') 
+df = pd.read_csv('C:\\Users\\KnightG\\Dropbox\\repos\\deep-learning-keras-Python\\titanic_all_numeric.csv') 
 
 # Isolate the predictors
 predictors = df.drop(['survived'], axis=1).as_matrix()
@@ -47,14 +51,11 @@ n_cols = predictors.shape[1]
 #(one column for each possibility)
 target = to_categorical(df.survived)
 
-# Set up the model
-model = Sequential()
 
-# Add the first layer
-model.add(Dense(32, activation='relu', input_shape = (n_cols,)))
 
-# Add the output layer. 2 Possible outputs. 'softmax' will output a probability
-model.add(Dense(2, activation='softmax')) 
+###############################################################################
+# Set up a model
+model = get_sequential_model((n_cols,), 32, [], 2, 'relu', 'relu', 'softmax')
 
 # Compile the model
 model.compile(optimizer='sgd', loss='categorical_crossentropy', metrics=['accuracy'])
@@ -75,9 +76,7 @@ load_model = load_model('titanic_model.h5')
 #probability_true = predictions[:,1]
 
 ###############################################################################
-#Part 2: Tuning a model
-
-#1
+#Tuning a model's learning rate
 
 # Create list of learning rates: lr_to_test
 lr_to_test = [0.000001, 0.01,1.0]
@@ -87,7 +86,7 @@ for lr in lr_to_test:
     print('\n\nTesting model with learning rate: %f\n'%lr )
     
     # Build new model to test, unaffected by previous models
-    model = get_new_model()
+    model = get_sequential_model((n_cols,), 100, [100], 2, 'relu', 'relu', 'softmax')
     
     # Create SGD optimizer with specified learning rate: my_optimizer
     my_optimizer = SGD(lr = lr)
@@ -98,68 +97,52 @@ for lr in lr_to_test:
     # Fit the model
     model.fit(predictors, target)
 
-#2
-
-# Save the number of columns in predictors: n_cols
-n_cols = predictors.shape[1]
-input_shape = (n_cols,)
-
-# Specify the model
-model = Sequential()
-model.add(Dense(100, activation='relu', input_shape = input_shape))
-model.add(Dense(100, activation='relu'))
-model.add(Dense(2, activation='softmax'))
-
-# Compile the model
-model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics=['accuracy'])
-
-# Fit the model
-hist = model.fit(predictors, target, validation_split=0.3)
 
 
-#3
 
-# Save the number of columns in predictors: n_cols
-n_cols = predictors.shape[1]
-input_shape = (n_cols,)
-
-# Specify the model
-model = Sequential()
-model.add(Dense(100, activation='relu', input_shape = input_shape))
-model.add(Dense(100, activation='relu'))
-model.add(Dense(2, activation='softmax'))
-
-# Compile the model
-model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics=['accuracy'])
+###############################################################################
+#Tell a model to stop when it isn't improving
 
 # Define early_stopping_monitor
 early_stopping_monitor = EarlyStopping(patience = 2)
 
+#Define model
+model = get_sequential_model((n_cols,), 100, [100], 2, 'relu', 'relu', 'softmax')
+
+#Compile model
+model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics=['accuracy'])
+
 # Fit the model
 model.fit(predictors, target, validation_split=0.3, epochs = 30, callbacks = [early_stopping_monitor])
 
-#3 display validation score 
+
+
+
+
+###############################################################################
+# Plot validation score 
+
+
 # Define early_stopping_monitor
 early_stopping_monitor = EarlyStopping(patience=2)
 
+# Create the new model: model_1
+model_1 = get_sequential_model((n_cols,), 150, [150,150], 2, 'relu', 'relu', 'softmax')
+
 # Create the new model: model_2
-model_2 = Sequential()
+model_2 = get_sequential_model((n_cols,), 100, [100], 2, 'relu', 'relu', 'softmax')
 
-# Add the first and second layers
-model_2.add(Dense(100, activation='relu', input_shape=input_shape))
-model_2.add(Dense(100, activation='relu'))
 
-# Add the output layer
-model_2.add(Dense(2, activation='softmax'))
 
-# Compile model_2
+# Compile 
+model_1.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics=['accuracy'])
 model_2.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics=['accuracy'])
 
 # Fit model_1
-model_1_training = model_1.fit(predictors, target, epochs=15, validation_split=0.2, callbacks=[early_stopping_monitor], verbose=False)
+model_1_training = model_1.fit(predictors, target, epochs=30, validation_split=0.2, callbacks=[early_stopping_monitor], verbose=False)
 
 # Fit model_2
-model_2_training = model_2.fit(predictors, target, epochs=15, validation_split=0.2, callbacks=[early_stopping_monitor], verbose=False)
+model_2_training = model_2.fit(predictors, target, epochs=30, validation_split=0.2, callbacks=[early_stopping_monitor], verbose=False)
 
 # Create the plot
 plt.plot(model_1_training.history['val_loss'], 'r', model_2_training.history['val_loss'], 'b')
@@ -169,22 +152,19 @@ plt.show()
 
 
 # MNIST
+df_mnist = pd.read_csv('C:\\Users\\KnightG\\Dropbox\\repos\\deep-learning-keras-Python\\mnist.csv', header = None) 
+predictors_m = df_mnist.drop([0], axis=1).as_matrix()
+target_m = to_categorical(df_mnist[0])
+# extract shape of the predictors
+n_cols_m = predictors_m.shape[1]
 
 # Create the model: model
-model = Sequential()
+model = get_sequential_model((n_cols_m,), 250, [250,250,250,250,250,250,250], 10, 'relu', 'relu', 'softmax')
 
-# Add the first hidden layer
-model.add(Dense(50, activation='relu', input_shape=(784,)))
-
-# Add the second hidden layer
-model.add(Dense(50, activation='relu'))
-
-# Add the output layer
-model.add(Dense(10, activation='softmax'))
 
 # Compile the model
-model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics=['accuracy'].)
+model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics=['accuracy'])
 
 # Fit the model
-model.fit(X,y, validation_split = 0.3)
+model.fit(predictors_m,target_m, epochs=30, validation_split = 0.1, callbacks=[early_stopping_monitor])
 
